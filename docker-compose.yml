@@ -1,0 +1,54 @@
+version: '3.5'
+
+services:
+  db:
+    image: mariadb:10.11
+    command: --max-allowed-packet=64MB
+    container_name: ${DB_SERVICE_NAME:-matomo-db}
+    restart: always
+    volumes:
+      - ${DB_DATA_PATH:-./data/db}:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MARIADB_AUTO_UPGRADE: "1"
+      MARIADB_DISABLE_UPGRADE_BACKUP: "1"
+    env_file:
+      - ./db.env
+    networks:
+      - backend_net
+    logging:
+      driver: ${DB_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${DB_LOG_MAX_SIZE:-2m}
+        max-file: ${DB_LOG_MAX_FILE:-10}
+
+  app:
+    image: matomo
+    container_name: ${MATOMO_SERVICE_NAME:-matomo-app}
+    restart: always
+    volumes:
+      - ${MATOMO_DATA_PATH:-./data/matomo}:/var/www/html
+    environment:
+      MATOMO_DATABASE_HOST: ${DB_SERVICE_NAME:-matomo-db}
+    env_file:
+      - ./app.env
+    ports:
+      - "${MATOMO_PORT:-8080}:80"
+    networks:
+      - frontend_net
+      - backend_net
+    logging:
+      driver: ${MATOMO_LOG_DRIVER:-json-file}
+      options:
+        max-size: ${MATOMO_LOG_MAX_SIZE:-4m}
+        max-file: ${MATOMO_LOG_MAX_FILE:-10}
+
+networks:
+  backend_net:
+    driver: bridge
+  frontend_net:
+    driver: bridge
+
+  default:
+    external: true
+    name: ${NETWORK:-default_network}
